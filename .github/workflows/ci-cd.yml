@@ -1,0 +1,66 @@
+name: CI et publication Docker
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construire l'image
+        run: docker build -t saga-orchestrator:ci .
+
+      - name: Verifier le demarrage de Flask
+        run: |
+          docker run -d --name saga-ci             -e FLASK_PORT=5123             -e API_GATEWAY_URL=http://api-gateway:8080             -p 5123:5123 saga-orchestrator:ci
+          curl --fail --retry 15 --retry-connrefused --retry-delay 2             http://localhost:5123/health-check
+
+      - name: Afficher les logs
+        if: always()
+        run: docker logs saga-ci || true
+
+      - name: Arreter le conteneur de test
+        if: always()
+        run: docker rm -f saga-ci || true
+
+  publish:
+    needs: ci
+    if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Connexion a GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generer les tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest
+            type=sha
+
+      - name: Construire et publier
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
