@@ -21,7 +21,7 @@ jobs:
       - name: Verifier le demarrage de Flask
         run: |
           docker run -d --name saga-ci             -e FLASK_PORT=5123             -e API_GATEWAY_URL=http://api-gateway:8080             -p 5123:5123 saga-orchestrator:ci
-          curl --fail --retry 15 --retry-connrefused --retry-delay 2             http://localhost:5123/health-check
+          curl --fail --show-error --retry 15 --retry-all-errors --retry-delay 2 --connect-timeout 2 --max-time 5             http://localhost:5123/health-check
 
       - name: Afficher les logs
         if: always()
