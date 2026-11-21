@@ -1,0 +1,12 @@
+$kind: http-request
+name: /saga/order
+url: localhost:5123/saga/order
+method: POST
+body:
+  type: json
+  content: |-
+    {
+        "user_id": 1,
+        "items": [{"product_id": 3, "quantity": 2}, {"product_id": 2, "quantity": 4}]
+    }
+order: 1000

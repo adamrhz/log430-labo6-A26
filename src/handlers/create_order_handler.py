@@ -23,7 +23,8 @@ class CreateOrderHandler(Handler):
             # ATTENTION: Si vous exécutez ce code dans Docker, n'utilisez pas localhost. Utilisez plutôt le hostname de votre API Gateway
             response = requests.post(f'{config.API_GATEWAY_URL}/store-manager-api/orders',
                 json=self.order_data,
-                headers={'Content-Type': 'application/json'}
+                headers={'Content-Type': 'application/json'},
+                timeout=10,
             )
             if response.ok:
                 data = response.json() 

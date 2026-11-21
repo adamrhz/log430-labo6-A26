@@ -7,7 +7,26 @@ import config
 from flask import Flask, jsonify, request
 from controllers.order_saga_controller import OrderSagaController
 
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
+
 app = Flask(__name__)
+
+resource = Resource.create({"service.name": "saga-orchestrator", "service.version": "1.0.0"})
+provider = TracerProvider(resource=resource)
+provider.add_span_processor(BatchSpanProcessor(
+    OTLPSpanExporter(endpoint="http://jaeger:4317", insecure=True)
+))
+trace.set_tracer_provider(provider)
+tracer = trace.get_tracer(__name__)
+FlaskInstrumentor().instrument_app(app)
+RequestsInstrumentor().instrument()
+
 
 @app.get('/health-check')
 def health():
@@ -15,6 +34,7 @@ def health():
     return jsonify({'status': 'ok'})
 
 @app.post('/saga/order')
+@tracer.start_as_current_span("order-saga")
 def saga_order():
     """ Start order saga """
     order_saga_controller = OrderSagaController()
